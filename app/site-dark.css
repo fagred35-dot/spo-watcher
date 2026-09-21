@@ -1,0 +1,76 @@
+/* Тёмная тема для сайта «Сетевой город» внутри СПО-Вотчер. */
+:root {
+  --spo-bg: #181a1b;
+  --spo-surface: #232629;
+  --spo-surface2: #2b2f33;
+  --spo-border: #3a3f44;
+  --spo-text: #e6e6e6;
+  --spo-text-dim: #9aa0a6;
+  --spo-accent: #ff9f43;
+  --spo-accent2: #e88b2e;
+  --spo-ok: #5cb85c;
+  --spo-err: #e06c75;
+}
+html, body { background: var(--spo-bg) !important; color: var(--spo-text) !important; }
+body.student-ui, body.login, .wrapper { background: var(--spo-bg) !important; color: var(--spo-text) !important; }
+header.main-menu, nav.main-menu, .drop-menu { background: var(--spo-surface) !important; border-bottom: 1px solid var(--spo-border) !important; }
+header.main-menu a, nav.main-menu a, nav.main-menu .item-title, nav.main-menu dt, nav.main-menu dd a { color: var(--spo-text) !important; }
+nav.main-menu .item-title:hover, nav.main-menu a:hover { background: var(--spo-surface2) !important; color: var(--spo-accent) !important; }
+nav.main-menu .drop-list dd, nav.main-menu .item-submenu { background: var(--spo-surface) !important; border: 1px solid var(--spo-border) !important; }
+nav.main-menu .usermenu .item-title { color: var(--spo-accent) !important; }
+nav.main-menu hr { border-color: var(--spo-border) !important; }
+.headline, .headline hgroup, hgroup { background: transparent !important; border-color: var(--spo-border) !important; }
+h1, h2, h3, h4, h5 { color: var(--spo-text) !important; }
+.headline h1, .headline .ng-binding { color: var(--spo-text) !important; }
+.date-range .range { color: var(--spo-text) !important; }
+.date-range .icon-arrow-circle-left, .date-range .icon-arrow-circle-right { color: var(--spo-text-dim) !important; cursor: pointer; }
+.date-range .icon-arrow-circle-left:hover, .date-range .icon-arrow-circle-right:hover { color: var(--spo-accent) !important; }
+section.content, .content, article, .print-content, .print-content-wrapper { background: var(--spo-bg) !important; color: var(--spo-text) !important; }
+.student-lessons dl { background: var(--spo-surface) !important; border: 1px solid var(--spo-border) !important; border-radius: 8px !important; margin-bottom: 12px !important; overflow: hidden; }
+.student-lessons dl.today { border-color: var(--spo-accent) !important; box-shadow: 0 0 0 1px var(--spo-accent) inset !important; }
+.student-lessons dt { background: var(--spo-surface2) !important; color: var(--spo-text) !important; padding: 10px 14px !important; border-bottom: 1px solid var(--spo-border) !important; }
+.student-lessons dt .short-date big { color: var(--spo-accent) !important; font-weight: 600; }
+.student-lessons dt .long-date { color: var(--spo-text) !important; opacity: 0.85; }
+.student-lessons dd { background: transparent !important; }
+.lesson { background: transparent !important; border-bottom: 1px solid var(--spo-border) !important; }
+.lesson:last-child { border-bottom: none !important; }
+.lesson:hover { background: var(--spo-surface2) !important; }
+.lesson .brief { padding: 10px 14px !important; }
+.lesson .time .start, .lesson .time .end { color: var(--spo-accent) !important; font-weight: 600; }
+.lesson .time.fggray .start, .lesson .time.fggray .end { color: var(--spo-text-dim) !important; }
+.lesson .summary big { color: var(--spo-text) !important; }
+.lesson .classroom, .lesson .teacher { color: var(--spo-text-dim) !important; }
+.lesson .teacher:hover { color: var(--spo-accent) !important; }
+.lesson .nolesson, .nolesson { color: var(--spo-text-dim) !important; font-style: italic; }
+.lesson .attendance .icon-circle-o { color: var(--spo-text-dim) !important; }
+.lesson .tasks, .lesson .detailed { background: var(--spo-surface2) !important; }
+.print-content table, table { background: var(--spo-surface) !important; color: var(--spo-text) !important; border-collapse: collapse !important; }
+table th, table td { border: 1px solid var(--spo-border) !important; color: var(--spo-text) !important; padding: 6px 8px !important; }
+table th { background: var(--spo-surface2) !important; color: var(--spo-text) !important; font-weight: 600; }
+table tr:nth-child(even) td { background: rgba(255,255,255,0.02) !important; }
+table tr:hover td { background: var(--spo-surface2) !important; }
+td.big.bold { color: var(--spo-text) !important; font-weight: 600 !important; }
+td[x-ng-bind="day.value"]:not(:empty) { color: var(--spo-accent) !important; font-weight: 600; }
+.student-dashboard, .student-progress { background: transparent !important; }
+.average .cell .inner, .average .inner { background: var(--spo-surface) !important; border: 1px solid var(--spo-border) !important; border-radius: 8px !important; }
+.average.good big { color: var(--spo-ok) !important; }
+.average.bad big { color: var(--spo-err) !important; }
+.average small { color: var(--spo-text-dim) !important; }
+body.login .centered { background: var(--spo-bg) !important; }
+.loginbox { background: var(--spo-surface) !important; border: 1px solid var(--spo-border) !important; border-radius: 12px !important; padding: 32px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important; }
+.loginbox h1 { color: var(--spo-text) !important; }
+.loginbox h1 small { color: var(--spo-text-dim) !important; }
+.input-field input { background: var(--spo-surface2) !important; color: var(--spo-text) !important; border: 1px solid var(--spo-border) !important; border-radius: 6px !important; padding: 12px 14px !important; }
+.input-field input:focus { border-color: var(--spo-accent) !important; outline: none !important; }
+.input-field input::placeholder { color: var(--spo-text-dim) !important; opacity: 1; }
+.loginbox .fclear a, .loginbox a { color: var(--spo-accent) !important; }
+.loginbox .mtop .copyright { color: var(--spo-text-dim) !important; }
+footer, footer small { color: var(--spo-text-dim) !important; background: transparent !important; }
+.apploader, .child-window { background: rgba(24,26,27,0.85) !important; color: var(--spo-text) !important; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--spo-bg); }
+::-webkit-scrollbar-thumb { background: var(--spo-border); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--spo-accent); }
+a { color: var(--spo-accent) !important; }
+a:hover { color: var(--spo-accent2) !important; }
+.report-row, .fggray { color: var(--spo-text-dim) !important; }

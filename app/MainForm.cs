@@ -22,8 +22,8 @@ public sealed class MainForm : Form
 
     private readonly WebView2 _web;
     private readonly TextBox _log;
-    private readonly Button _checkNow;
-    private readonly Button _sendTomorrow;
+    private readonly ModernButton _checkNow;
+    private readonly ModernButton _sendTomorrow;
     private readonly System.Windows.Forms.Timer _gradeTimer;
     private readonly System.Windows.Forms.Timer _dailyCheckTimer;
 
@@ -41,58 +41,120 @@ public sealed class MainForm : Form
         Width = 1200;
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Theme.Bg;
+        ForeColor = Theme.Text;
+        Font = new Font("Segoe UI", 9.75f);
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 32 };
+        // ==================== Верхняя панель ====================
+        var top = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 52,
+            BackColor = Theme.Surface,
+            Padding = new Padding(10, 9, 10, 9)
+        };
 
-        _checkNow = new Button { Text = "Все оценки сейчас", Width = 150, Left = 6, Top = 3 };
+        var leftFlow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Left,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = true,
+            BackColor = Theme.Surface
+        };
+
+        _checkNow = new ModernButton
+        {
+            Text = "Все оценки сейчас",
+            Width = 160,
+            Accent = true,
+            Margin = new Padding(0, 0, 8, 0)
+        };
         _checkNow.Click += async (_, _) => await SendAllGradesAsync();
-        top.Controls.Add(_checkNow);
+        leftFlow.Controls.Add(_checkNow);
 
-        _sendTomorrow = new Button { Text = "Расписание на завтра", Width = 170, Left = 156, Top = 3 };
+        _sendTomorrow = new ModernButton
+        {
+            Text = "Расписание на завтра",
+            Width = 175,
+            Accent = true,
+            Margin = new Padding(0, 0, 16, 0)
+        };
         _sendTomorrow.Click += async (_, _) => await SendTomorrowLessonsAsync();
-        top.Controls.Add(_sendTomorrow);
+        leftFlow.Controls.Add(_sendTomorrow);
 
-        var btnGrades = new Button { Text = "Оценки", Width = 100, Left = 336, Top = 3 };
+        var btnGrades = new ModernButton { Text = "Оценки", Width = 90, Margin = new Padding(0, 0, 6, 0) };
         btnGrades.Click += (_, _) => NavigateTo(GradesHash);
-        top.Controls.Add(btnGrades);
+        leftFlow.Controls.Add(btnGrades);
 
-        var btnLessons = new Button { Text = "Расписание", Width = 110, Left = 446, Top = 3 };
+        var btnLessons = new ModernButton { Text = "Расписание", Width = 110, Margin = new Padding(0, 0, 6, 0) };
         btnLessons.Click += (_, _) => NavigateTo(LessonsHash);
-        top.Controls.Add(btnLessons);
+        leftFlow.Controls.Add(btnLessons);
 
-        var btnSite = new Button { Text = "Главная", Width = 90, Left = 566, Top = 3 };
+        var btnSite = new ModernButton { Text = "Главная", Width = 90, Margin = new Padding(0, 0, 6, 0) };
         btnSite.Click += (_, _) => NavigateTo("#/");
-        top.Controls.Add(btnSite);
+        leftFlow.Controls.Add(btnSite);
 
-        var btnSettings = new Button { Text = "Настройки", Width = 100, Left = 666, Top = 3 };
+        top.Controls.Add(leftFlow);
+
+        var rightFlow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            AutoSize = true,
+            BackColor = Theme.Surface
+        };
+
+        var btnSettings = new ModernButton { Text = "⚙ Настройки", Width = 120 };
         btnSettings.Click += (_, _) =>
         {
             using var dlg = new SettingsForm();
             dlg.ShowDialog(this);
         };
-        top.Controls.Add(btnSettings);
+        rightFlow.Controls.Add(btnSettings);
 
-        _web = new WebView2 { Dock = DockStyle.Fill };
+        top.Controls.Add(rightFlow);
+
+        // ==================== WebView2 ====================
+        _web = new WebView2
+        {
+            Dock = DockStyle.Fill,
+            DefaultBackgroundColor = Theme.Bg
+        };
+
+        // ==================== Лог ====================
+        var logPanel = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 130,
+            BackColor = Theme.Surface,
+            Padding = new Padding(1, 1, 1, 1)
+        };
 
         _log = new TextBox
         {
             Multiline = true,
             ScrollBars = ScrollBars.Vertical,
             ReadOnly = true,
-            Dock = DockStyle.Bottom,
-            Height = 140,
-            Font = new Font("Consolas", 9)
+            Dock = DockStyle.Fill,
+            BackColor = Theme.Surface2,
+            ForeColor = Theme.Text,
+            BorderStyle = BorderStyle.None,
+            Font = new Font("Cascadia Mono", 9f, FontStyle.Regular),
+            Padding = new Padding(8)
         };
 
+        logPanel.Controls.Add(_log);
+
         Controls.Add(_web);
-        Controls.Add(_log);
+        Controls.Add(logPanel);
         Controls.Add(top);
 
-        // Оценки: раз в час
+        // ==================== Таймеры ====================
         _gradeTimer = new System.Windows.Forms.Timer { Interval = 3600 * 1000 };
         _gradeTimer.Tick += async (_, _) => await RunGradesCheckAsync();
 
-        // Расписание: проверяем каждые 5 минут, не наступил ли 19:00
         _dailyCheckTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 };
         _dailyCheckTimer.Tick += async (_, _) => await MaybeSendDailyLessonsAsync();
 
@@ -149,6 +211,9 @@ public sealed class MainForm : Form
             await _web.EnsureCoreWebView2Async(env);
 
             _web.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+
             _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
             _web.CoreWebView2.Navigate(SiteUrl);
             AppendLog("окно инициализировано, загружаю сайт");
@@ -171,10 +236,26 @@ public sealed class MainForm : Form
         catch { }
     }
 
-    /// <summary>При завершении каждой навигации — проверяем, не форма ли входа.</summary>
+    /// <summary>При каждой навигации: инъекция CSS темы + попытка автологина.</summary>
     private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         if (!e.IsSuccess) return;
+
+        // 1. Внедряем CSS — на каждой странице заново.
+        try
+        {
+            var css = SiteTheme.Css.Replace("\\", "\\\\").Replace("`", "\\`").Replace("$", "\\$");
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "(function(){var id='spo-dark-theme';var old=document.getElementById(id);if(old)old.remove();" +
+                "var s=document.createElement('style');s.id=id;s.type='text/css';s.textContent=`" + css + "`;" +
+                "document.head.appendChild(s);})();");
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ошибка инъекции CSS: " + ex.Message);
+        }
+
+        // 2. Автологин — только один раз за запуск и только если сохранены данные.
         if (_autoLoginAttempted) return;
         if (!Credentials.Exists()) return;
 
@@ -184,16 +265,13 @@ public sealed class MainForm : Form
 
         try
         {
-            // Проверяем наличие формы входа.
             var probe = await _web.CoreWebView2.ExecuteScriptAsync(
                 "document.getElementById('login') ? 'yes' : 'no'");
-            // ExecuteScriptAsync возвращает JSON-строку, поэтому "yes" с кавычками.
             if (probe != "\"yes\"") return;
 
             _autoLoginAttempted = true;
             AppendLog("обнаружена форма входа, ввожу сохранённые данные");
 
-            // Кладём credentials в window как валидный JSON (экранирование берёт на себя System.Text.Json).
             var loginJson = JsonSerializer.Serialize(creds.Login);
             var passJson = JsonSerializer.Serialize(creds.Password);
             await _web.CoreWebView2.ExecuteScriptAsync(
@@ -214,13 +292,12 @@ public sealed class MainForm : Form
         catch (Exception ex) { AppendLog("ошибка скрапера: " + ex.Message); return ""; }
     }
 
-    /// <summary>Раз в час: собрать оценки и сравнить.</summary>
+    /// <summary>Раз в час: только НОВЫЕ оценки.</summary>
     private async Task RunGradesCheckAsync()
     {
         if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
         try
         {
-            _checkNow.Enabled = false;
             NavigateTo(GradesHash);
             await Task.Delay(1800);
 
@@ -258,7 +335,10 @@ public sealed class MainForm : Form
                 AppendLog(ok ? $"  → отправлено: {ev.Subject} = {ev.Value}" : "  → ошибка отправки");
             }
         }
-        finally { _checkNow.Enabled = true; }
+        catch (Exception ex)
+        {
+            AppendLog("ошибка проверки оценок: " + ex.Message);
+        }
     }
 
     /// <summary>Ручная кнопка: собрать ВСЕ текущие оценки и отправить.</summary>
@@ -281,7 +361,6 @@ public sealed class MainForm : Form
             if (snap.Grades.Count == 0) { AppendLog("оценок на странице нет"); return; }
             AppendLog($"собрано оценок: {snap.Grades.Count}, отправляю всё");
 
-            // Сохраняем как текущее состояние, чтобы часовая проверка потом сравнивала с ним.
             _prevGrades = snap;
             _gradesInitialized = true;
 
@@ -305,7 +384,6 @@ public sealed class MainForm : Form
         finally { _checkNow.Enabled = true; }
     }
 
-    /// <summary>Форматирует все оценки сгруппированно по предмету.</summary>
     private static string FormatAllGrades(Snapshot snap)
     {
         var bySubject = new SortedDictionary<string, List<(string date, string value)>>();
@@ -323,7 +401,7 @@ public sealed class MainForm : Form
             list.Add((date, kv.Value));
         }
 
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         foreach (var kv in bySubject)
         {
             sb.AppendLine($"<b>{System.Net.WebUtility.HtmlEncode(kv.Key)}</b>");
@@ -336,7 +414,6 @@ public sealed class MainForm : Form
         return sb.ToString().TrimEnd();
     }
 
-    /// <summary>Каждые 5 мин: если наступил час X и сегодня ещё не отправляли — шлём.</summary>
     private async Task MaybeSendDailyLessonsAsync()
     {
         var now = DateTime.Now;
@@ -345,7 +422,6 @@ public sealed class MainForm : Form
         await SendTomorrowLessonsAsync();
     }
 
-    /// <summary>Собрать расписание на завтра и отправить одним сообщением.</summary>
     private async Task SendTomorrowLessonsAsync()
     {
         if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
@@ -360,8 +436,6 @@ public sealed class MainForm : Form
             var tomorrow = DateTime.Today.AddDays(1);
             var target = tomorrow.ToString("yyyy-MM-dd");
 
-            // На странице — текущая неделя. Если завтра в другой неделе — надо переключиться.
-            // Пробуем кликнуть «nextWeek» один раз, если завтра дальше воскресенья.
             var currentWeekStart = DateTime.Today.AddDays(-(((int)DateTime.Today.DayOfWeek + 6) % 7));
             var targetWeekStart = tomorrow.AddDays(-(((int)tomorrow.DayOfWeek + 6) % 7));
             if (targetWeekStart > currentWeekStart)
@@ -401,7 +475,6 @@ public sealed class MainForm : Form
         finally { _sendTomorrow.Enabled = true; }
     }
 
-    /// <summary>Собирает список пар на конкретную дату в текст.</summary>
     private static string? FormatLessonsForDate(Snapshot snap, string isoDate)
     {
         var items = new List<(string time, Lesson lesson)>();

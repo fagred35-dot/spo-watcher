@@ -23,6 +23,7 @@
   <ItemGroup>
     <EmbeddedResource Include="scraper.js" />
     <EmbeddedResource Include="autologin.js" />
+    <EmbeddedResource Include="site-dark.css" />
   </ItemGroup>
 
   <ItemGroup>
