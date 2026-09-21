@@ -22,9 +22,12 @@ Tauri/Rust отвергнут (crates.io недоступен). Vercel заме�
 ```
 app/
   Program.cs           точка входа
-  MainForm.cs          окно, кнопки, 2 таймера, diff, отправка, автологин
-  SettingsForm.cs      диалог ввода логина/пароля
+  MainForm.cs          окно, кнопки, 2 таймера, diff, отправка, автологин, CSS-инъекция
+  SettingsForm.cs      диалог ввода логина/пароля (тёмная тема)
   Credentials.cs       DPAPI-хранилище логина/пароля
+  Theme.cs             палитра тёмной темы приложения
+  ModernButton.cs      кастомная кнопка (скругление, hover, accent)
+  SiteTheme.cs         обёртка site-dark.css (EmbeddedResource)
   Snapshot.cs, Lesson  модель снимка
   Event.cs             модель события
   Diff.cs              сравнение оценок
@@ -33,6 +36,7 @@ app/
   AutoLogin.cs         обёртка autologin.js (EmbeddedResource)
   scraper.js           JS-скрапер страниц
   autologin.js         JS-автозаполнение формы входа
+  site-dark.css        тёмная тема сайта (инжектится на каждой навигации)
   spo-watcher.csproj
   config.json          server_url + secret (в .gitignore)
 server/
@@ -41,8 +45,14 @@ server/
   README.md
 ```
 
+## UI/тема
+- Приложение: тёмная тема (Theme.cs, палитра #181a1b / #232629 / #ff9f43 оранжевый акцент).
+- Кнопки: ModernButton со скруглением и hover, Accent=true для главных действий.
+- Сайт внутри WebView2: `site-dark.css` инжектится на каждом `NavigationCompleted` через `<style id='spo-dark-theme'>`.
+- Кнопка «Войти» на сайте НЕ трогается (пользователь попросил) — только остальное перекрашено.
+
 ## Логика приложения
-1. При старте открывается сайт, идёт попытка автологина (`NavigationCompleted`).
+1. При старте открывается сайт, идёт попытка автологина (`NavigationCompleted`). На том же хуке инжектится CSS.
 2. Автологин: `%APPDATA%\spo-watcher\credentials.dat` (DPAPI) → 4 способа отправки формы.
 3. Таймер 1 час → `RunGradesCheckAsync()` → diff → новые оценки.
 4. Таймер 5 мин → `MaybeSendDailyLessonsAsync()` → в 19:00 шлёт расписание на завтра (type: lessons).
