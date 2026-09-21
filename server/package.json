@@ -1,0 +1,11 @@
+{
+  "name": "spo-watcher-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Релей: принимает обезличенные события от СПО-Вотчер и шлёт в Telegram",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": { "node": ">=18" }
+}
