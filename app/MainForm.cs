@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -22,17 +23,17 @@ public sealed class MainForm : Form
     private const int DailyLessonsHour = 19;
 
     private readonly WebView2 _web;
-    private readonly TextBox _log;
+    private readonly RichTextBox _log;
     private readonly ModernButton _checkNow;
     private readonly ModernButton _sendTomorrow;
     private readonly System.Windows.Forms.Timer _gradeTimer;
     private readonly System.Windows.Forms.Timer _dailyCheckTimer;
 
-    // ---- Дополнительные элементы UI ----
     private readonly Panel _logPanel;
     private readonly Panel _logHeader;
     private readonly Label _logTitle;
     private readonly Label _logToggle;
+    private readonly Label _logBadge;
     private readonly Panel _statusBar;
     private readonly Panel _statusDot;
     private readonly Label _statusConn;
@@ -43,8 +44,10 @@ public sealed class MainForm : Form
     private readonly DateTime _startedAt = DateTime.Now;
 
     private bool _logCollapsed;
-    private const int LogHeight = 140;
-    private const int LogCollapsedHeight = 28;
+    private const int LogHeight = 170;
+    private const int LogCollapsedHeight = 34;
+    private int _warnCount = 0;
+    private int _errCount = 0;
 
     private Snapshot? _prevGrades;
     private bool _gradesInitialized;
@@ -56,42 +59,46 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        var ver = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.2.0";
-        Text = $"СПО-Вотчер  v{ver}";
-        Width = 1200;
-        Height = 820;
-        MinimumSize = new Size(900, 620);
+        var ver = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.0";
+        Text = $"СПО-Вотчер v{ver}";
+        Width = 1280;
+        Height = 860;
+        MinimumSize = new Size(960, 660);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Theme.Bg;
         ForeColor = Theme.Text;
         Font = new Font("Segoe UI", 9.75f);
         try { Icon = AppIcon.Make(); } catch { }
 
-        // ==================== Верхняя панель ====================
+        // ==================== Toolbar ====================
         var top = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 56,
+            Height = 64,
             BackColor = Theme.Surface,
-            Padding = new Padding(12, 11, 12, 11)
+            Padding = new Padding(16, 0, 16, 0)
+        };
+        top.Paint += (s, e) =>
+        {
+            using var p = new Pen(Theme.Border, 1);
+            e.Graphics.DrawLine(p, 0, top.Height - 1, top.Width, top.Height - 1);
         };
 
-        // Единая левая панель: действия → разделитель → навигация
         var leftFlow = new FlowLayoutPanel
         {
             Dock = DockStyle.Left,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             AutoSize = true,
-            BackColor = Theme.Surface,
-            Padding = new Padding(0)
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 14, 0, 0)
         };
 
         _checkNow = new ModernButton
         {
-            Text = "📊  Все оценки сейчас",
-            Width = 190,
-            Accent = true,
+            Text = "⚡  Все оценки сейчас",
+            Width = 180,
+            ButtonStyle = ModernButton.Style.Accent,
             Margin = new Padding(0, 0, 8, 0)
         };
         _checkNow.Click += async (_, _) => await SendAllGradesAsync();
@@ -99,49 +106,47 @@ public sealed class MainForm : Form
 
         _sendTomorrow = new ModernButton
         {
-            Text = "📅  Расписание на завтра",
-            Width = 210,
-            Accent = true,
-            Margin = new Padding(0, 0, 8, 0)
+            Text = "📅  Расписание",
+            Width = 145,
+            ButtonStyle = ModernButton.Style.Primary,
+            Margin = new Padding(0, 0, 16, 0)
         };
         _sendTomorrow.Click += async (_, _) => await SendTomorrowLessonsAsync();
         leftFlow.Controls.Add(_sendTomorrow);
 
-        var sep1 = new Panel { Width = 1, Height = 26, BackColor = Theme.Border, Margin = new Padding(6, 3, 14, 3) };
+        var sep1 = new Panel { Width = 1, Height = 28, BackColor = Theme.Border, Margin = new Padding(0, 4, 16, 0) };
         leftFlow.Controls.Add(sep1);
 
-        var btnGrades = new ModernButton { Text = "📚  Оценки", Width = 110, Margin = new Padding(0, 0, 6, 0) };
+        var btnGrades = new ModernButton { Text = "📚 Оценки", Width = 110, ButtonStyle = ModernButton.Style.Ghost, Margin = new Padding(0, 0, 4, 0) };
         btnGrades.Click += (_, _) => NavigateTo(GradesHash);
         leftFlow.Controls.Add(btnGrades);
 
-        var btnLessons = new ModernButton { Text = "🗓  Расписание", Width = 130, Margin = new Padding(0, 0, 6, 0) };
+        var btnLessons = new ModernButton { Text = "🗓 Расписание", Width = 130, ButtonStyle = ModernButton.Style.Ghost, Margin = new Padding(0, 0, 4, 0) };
         btnLessons.Click += (_, _) => NavigateTo(LessonsHash);
         leftFlow.Controls.Add(btnLessons);
 
-        var btnSite = new ModernButton { Text = "🏠  Главная", Width = 110, Margin = new Padding(0, 0, 6, 0) };
+        var btnSite = new ModernButton { Text = "🏠 Главная", Width = 110, ButtonStyle = ModernButton.Style.Ghost };
         btnSite.Click += (_, _) => NavigateTo("#/");
         leftFlow.Controls.Add(btnSite);
 
         top.Controls.Add(leftFlow);
 
-        // Правая группа: настройки
         var rightFlow = new FlowLayoutPanel
         {
             Dock = DockStyle.Right,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
             AutoSize = true,
-            BackColor = Theme.Surface
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 14, 0, 0)
         };
-
-        var btnSettings = new ModernButton { Text = "⚙  Настройки", Width = 130 };
+        var btnSettings = new ModernButton { Text = "⚙ Настройки", Width = 120, ButtonStyle = ModernButton.Style.Ghost };
         btnSettings.Click += (_, _) =>
         {
             using var dlg = new SettingsForm();
             dlg.ShowDialog(this);
         };
         rightFlow.Controls.Add(btnSettings);
-
         top.Controls.Add(rightFlow);
 
         // ==================== WebView2 ====================
@@ -151,7 +156,7 @@ public sealed class MainForm : Form
             DefaultBackgroundColor = Theme.Bg
         };
 
-        // ==================== Лог (со сворачиваемой шапкой) ====================
+        // ==================== Лог ====================
         _logPanel = new Panel
         {
             Dock = DockStyle.Bottom,
@@ -162,47 +167,69 @@ public sealed class MainForm : Form
         _logHeader = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 26,
-            BackColor = Theme.Surface2,
-            Cursor = Cursors.Hand
+            Height = 34,
+            BackColor = Theme.Surface,
+            Cursor = Cursors.Hand,
+            Padding = new Padding(14, 0, 10, 0)
         };
-
-        _logTitle = new Label
+        _logHeader.Paint += (s, e) =>
         {
-            Text = "  Журнал",
-            Dock = DockStyle.Left,
-            Width = 200,
-            TextAlign = ContentAlignment.MiddleLeft,
-            ForeColor = Theme.TextDim,
-            Font = new Font("Segoe UI", 8.75f),
-            Cursor = Cursors.Hand
+            using var p = new Pen(Theme.Border, 1);
+            e.Graphics.DrawLine(p, 0, 0, _logHeader.Width, 0);
         };
 
         _logToggle = new Label
         {
             Text = "▾",
             Dock = DockStyle.Right,
-            Width = 32,
+            Width = 28,
             TextAlign = ContentAlignment.MiddleCenter,
             ForeColor = Theme.TextDim,
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
 
-        _logHeader.Controls.Add(_logTitle);
-        _logHeader.Controls.Add(_logToggle);
+        _logTitle = new Label
+        {
+            Text = "ЖУРНАЛ",
+            Dock = DockStyle.Left,
+            AutoSize = true,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Theme.TextDim,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
 
-        _log = new TextBox
+        _logBadge = new Label
+        {
+            Text = "",
+            Dock = DockStyle.Left,
+            AutoSize = true,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Theme.Err,
+            Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Margin = new Padding(10, 0, 0, 0)
+        };
+
+        _logHeader.Controls.Add(_logToggle);
+        _logHeader.Controls.Add(_logBadge);
+        _logHeader.Controls.Add(_logTitle);
+
+        _log = new RichTextBox
         {
             Multiline = true,
-            ScrollBars = ScrollBars.Vertical,
             ReadOnly = true,
             Dock = DockStyle.Fill,
             BackColor = Theme.Surface2,
-            ForeColor = Theme.Text,
+            ForeColor = Theme.LogInfo,
             BorderStyle = BorderStyle.None,
-            Font = new Font("Cascadia Mono", 9f, FontStyle.Regular),
-            Padding = new Padding(8)
+            Font = new Font("Cascadia Mono", 9.25f, FontStyle.Regular),
+            Padding = new Padding(12, 10, 12, 10),
+            ScrollBars = RichTextBoxScrollBars.Vertical,
+            DetectUrls = false,
+            WordWrap = true,
+            HideSelection = false
         };
 
         _logPanel.Controls.Add(_log);
@@ -212,8 +239,13 @@ public sealed class MainForm : Form
         _statusBar = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 26,
-            BackColor = Theme.Surface2
+            Height = 28,
+            BackColor = Theme.Surface
+        };
+        _statusBar.Paint += (s, e) =>
+        {
+            using var p = new Pen(Theme.Border, 1);
+            e.Graphics.DrawLine(p, 0, 0, _statusBar.Width, 0);
         };
 
         var leftStat = new FlowLayoutPanel
@@ -222,16 +254,28 @@ public sealed class MainForm : Form
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             AutoSize = true,
-            BackColor = Theme.Surface2,
-            Padding = new Padding(10, 6, 0, 0)
+            BackColor = Color.Transparent,
+            Padding = new Padding(14, 7, 0, 0)
         };
 
         _statusDot = new Panel
         {
-            Width = 10,
-            Height = 10,
-            BackColor = Theme.TextDim,
-            Margin = new Padding(2, 4, 6, 0)
+            Width = 8,
+            Height = 8,
+            BackColor = Theme.TextMut,
+            Margin = new Padding(2, 6, 8, 0)
+        };
+        _statusDot.Paint += (s, e) =>
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var brush = new SolidBrush(_statusDot.BackColor);
+            g.FillEllipse(brush, 0, 0, _statusDot.Width - 1, _statusDot.Height - 1);
+            if (_statusDot.BackColor == Theme.Ok || _statusDot.BackColor == Theme.Err)
+            {
+                using var glow = new SolidBrush(Color.FromArgb(60, _statusDot.BackColor));
+                g.FillEllipse(glow, -2, -2, _statusDot.Width + 3, _statusDot.Height + 3);
+            }
         };
 
         _statusConn = new Label
@@ -240,11 +284,14 @@ public sealed class MainForm : Form
             AutoSize = true,
             ForeColor = Theme.TextDim,
             Font = new Font("Segoe UI", 8.5f),
-            Margin = new Padding(0, 2, 0, 0)
+            Margin = new Padding(0, 0, 16, 0)
         };
+
+        var sepStatus = new Panel { Width = 1, Height = 14, BackColor = Theme.Border, Margin = new Padding(8, 4, 16, 0) };
 
         leftStat.Controls.Add(_statusDot);
         leftStat.Controls.Add(_statusConn);
+        leftStat.Controls.Add(sepStatus);
 
         var rightStat = new FlowLayoutPanel
         {
@@ -252,8 +299,8 @@ public sealed class MainForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
             AutoSize = true,
-            BackColor = Theme.Surface2,
-            Padding = new Padding(0, 6, 10, 0)
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 7, 14, 0)
         };
 
         _statusNext = new Label
@@ -262,7 +309,7 @@ public sealed class MainForm : Form
             AutoSize = true,
             ForeColor = Theme.TextDim,
             Font = new Font("Segoe UI", 8.5f),
-            Margin = new Padding(14, 2, 0, 0)
+            Margin = new Padding(16, 0, 0, 0)
         };
 
         _statusLast = new Label
@@ -270,8 +317,7 @@ public sealed class MainForm : Form
             Text = "последняя: —",
             AutoSize = true,
             ForeColor = Theme.TextDim,
-            Font = new Font("Segoe UI", 8.5f),
-            Margin = new Padding(14, 2, 0, 0)
+            Font = new Font("Segoe UI", 8.5f)
         };
 
         rightStat.Controls.Add(_statusNext);
@@ -280,7 +326,7 @@ public sealed class MainForm : Form
         _statusBar.Controls.Add(leftStat);
         _statusBar.Controls.Add(rightStat);
 
-        // ==================== Сборка окна ====================
+        // ==================== Сборка ====================
         Controls.Add(_web);
         Controls.Add(_logPanel);
         Controls.Add(_statusBar);
@@ -293,7 +339,6 @@ public sealed class MainForm : Form
         _dailyCheckTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 };
         _dailyCheckTimer.Tick += async (_, _) => await MaybeSendDailyLessonsAsync();
 
-        // ==================== Таймер обновления статус-бара ====================
         _uiTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _uiTimer.Tick += (_, _) => UpdateStatus();
         _uiTimer.Start();
@@ -309,6 +354,7 @@ public sealed class MainForm : Form
         _logHeader.Click += (_, _) => ToggleLog();
         _logTitle.Click += (_, _) => ToggleLog();
         _logToggle.Click += (_, _) => ToggleLog();
+        _logBadge.Click += (_, _) => ToggleLog();
 
         // ==================== Трей ====================
         _tray = new NotifyIcon
@@ -317,9 +363,12 @@ public sealed class MainForm : Form
             Text = "СПО-Вотчер",
             Visible = true
         };
-
         var trayMenu = new ContextMenuStrip();
+        trayMenu.BackColor = Theme.Surface;
+        trayMenu.ForeColor = Theme.Text;
+        trayMenu.Renderer = new DarkMenuRenderer();
         trayMenu.Items.Add("Открыть", null, (_, _) => RestoreFromTray());
+        trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("Выход", null, (_, _) =>
         {
             _tray.Visible = false;
@@ -364,7 +413,8 @@ public sealed class MainForm : Form
         {
             var ok = !string.IsNullOrWhiteSpace(_serverUrl);
             _statusDot.BackColor = ok ? Theme.Ok : Theme.Err;
-            _statusConn.Text = ok ? "сервер: OK" : "сервер: не задан";
+            _statusConn.Text = ok ? "сервер: подключён" : "сервер: не настроен";
+            _statusConn.ForeColor = ok ? Theme.Ok : Theme.Err;
         }
         catch { }
         UpdateStatus();
@@ -382,7 +432,7 @@ public sealed class MainForm : Form
             var next19 = now.Date.AddHours(DailyLessonsHour);
             if (next19 <= now) next19 = next19.AddDays(1);
 
-            _statusNext.Text = $"следующая: оценки {nextGrades:HH:mm} · расписание {next19:HH:mm}";
+            _statusNext.Text = $"оценки {nextGrades:HH:mm}  ·  расписание {next19:HH:mm}";
         }
         catch { }
     }
@@ -407,13 +457,13 @@ public sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            AppendLog("ошибка чтения config.json: " + ex.Message);
+            AppendLog("ошибка чтения config.json: " + ex.Message, LogLevel.Error);
         }
 
         if (string.IsNullOrWhiteSpace(_serverUrl))
-            AppendLog("ВНИМАНИЕ: server_url не задан — события будут только в лог.");
+            AppendLog("server_url не задан — события только в лог", LogLevel.Warning);
         else
-            AppendLog("server_url = " + _serverUrl);
+            AppendLog("server_url = " + _serverUrl, LogLevel.Info);
 
         _sender = new Sender(_serverUrl, _secret);
     }
@@ -436,15 +486,15 @@ public sealed class MainForm : Form
 
             _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
             _web.CoreWebView2.Navigate(SiteUrl);
-            AppendLog("окно инициализировано, загружаю сайт");
+            AppendLog("окно инициализировано, загружаю сайт", LogLevel.Success);
 
             _gradeTimer.Start();
             _dailyCheckTimer.Start();
-            AppendLog($"таймеры запущены: оценки раз в час, расписание ежедневно в {DailyLessonsHour}:00");
+            AppendLog($"таймеры запущены: оценки 1ч, расписание ежедневно в {DailyLessonsHour}:00", LogLevel.Info);
         }
         catch (Exception ex)
         {
-            AppendLog("ошибка инициализации WebView2: " + ex.Message);
+            AppendLog("ошибка инициализации WebView2: " + ex.Message, LogLevel.Error);
             MessageBox.Show("Не удалось запустить WebView2.\n" + ex.Message, "СПО-Вотчер",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -452,7 +502,7 @@ public sealed class MainForm : Form
 
     private void NavigateTo(string hash)
     {
-        try { _web.CoreWebView2?.ExecuteScriptAsync($"location.hash = '{hash}';") ; }
+        try { _web.CoreWebView2?.ExecuteScriptAsync($"location.hash = '{hash}';"); }
         catch { }
     }
 
@@ -470,7 +520,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            AppendLog("ошибка инъекции CSS: " + ex.Message);
+            AppendLog("ошибка инъекции CSS: " + ex.Message, LogLevel.Error);
         }
 
         if (_autoLoginAttempted) return;
@@ -487,7 +537,7 @@ public sealed class MainForm : Form
             if (probe != "\"yes\"") return;
 
             _autoLoginAttempted = true;
-            AppendLog("обнаружена форма входа, ввожу сохранённые данные");
+            AppendLog("обнаружена форма входа, ввожу сохранённые данные", LogLevel.Info);
 
             var loginJson = JsonSerializer.Serialize(creds.Login);
             var passJson = JsonSerializer.Serialize(creds.Password);
@@ -495,71 +545,72 @@ public sealed class MainForm : Form
                 $"window.__spoCreds = {{ login: {loginJson}, password: {passJson} }};");
 
             var result = await _web.CoreWebView2.ExecuteScriptAsync(AutoLogin.Script);
-            AppendLog("автозаполнение: " + result);
+            AppendLog("автозаполнение: " + result, LogLevel.Success);
         }
         catch (Exception ex)
         {
-            AppendLog("ошибка автозаполнения: " + ex.Message);
+            AppendLog("ошибка автозаполнения: " + ex.Message, LogLevel.Error);
         }
     }
 
     private async Task<string> RunScraperAsync()
     {
         try { return await _web.CoreWebView2!.ExecuteScriptAsync(Scraper.Script); }
-        catch (Exception ex) { AppendLog("ошибка скрапера: " + ex.Message); return ""; }
+        catch (Exception ex) { AppendLog("ошибка скрапера: " + ex.Message, LogLevel.Error); return ""; }
     }
 
     private async Task RunGradesCheckAsync()
     {
-        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
+        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов", LogLevel.Error); return; }
         try
         {
             NavigateTo(GradesHash);
             await Task.Delay(1800);
 
             var json = await RunScraperAsync();
-            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (оценки)"); return; }
+            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (оценки)", LogLevel.Warning); return; }
 
             Snapshot snap;
             try { snap = JsonSerializer.Deserialize<Snapshot>(json) ?? new Snapshot(); }
-            catch (Exception e) { AppendLog("плохой JSON (оценки): " + e.Message); return; }
+            catch (Exception e) { AppendLog("плохой JSON (оценки): " + e.Message, LogLevel.Error); return; }
 
-            AppendLog($"оценок в снимке: {snap.Grades.Count}");
+            AppendLog($"оценок в снимке: {snap.Grades.Count}", LogLevel.Debug);
 
             if (!_gradesInitialized)
             {
                 _gradesInitialized = true;
                 _prevGrades = snap;
-                AppendLog("первый снимок оценок сохранён");
+                AppendLog("первый снимок оценок сохранён", LogLevel.Info);
                 return;
             }
 
             var events = Diff.ComputeGrades(_prevGrades!, snap);
             _prevGrades = snap;
 
-            if (events.Count == 0) { AppendLog("новых оценок нет"); return; }
-            AppendLog($"новых оценок: {events.Count}");
+            if (events.Count == 0) { AppendLog("новых оценок нет", LogLevel.Debug); return; }
+            AppendLog($"новых оценок: {events.Count}", LogLevel.Success);
 
             foreach (var ev in events)
             {
                 if (string.IsNullOrWhiteSpace(_serverUrl))
                 {
-                    AppendLog("  (не отправлено) " + JsonSerializer.Serialize(ev));
+                    AppendLog("  (не отправлено) " + JsonSerializer.Serialize(ev), LogLevel.Warning);
                     continue;
                 }
-                var ok = await _sender!.SendAsync(ev, AppendLog);
-                AppendLog(ok ? $"  → отправлено: {ev.Subject} = {ev.Value}" : "  → ошибка отправки");
+                var ok = await _sender!.SendAsync(ev, (s) => AppendLog(s, LogLevel.Debug));
+                AppendLog(ok ? $"  → отправлено: {ev.Subject} = {ev.Value}" : "  → ошибка отправки",
+                    ok ? LogLevel.Success : LogLevel.Error);
             }
         }
         catch (Exception ex)
         {
-            AppendLog("ошибка проверки оценок: " + ex.Message);
+            AppendLog("ошибка проверки оценок: " + ex.Message, LogLevel.Error);
         }
     }
 
     private async Task SendAllGradesAsync()
     {
-        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
+        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов", LogLevel.Error); return; }
         try
         {
             _checkNow.Enabled = false;
@@ -567,14 +618,14 @@ public sealed class MainForm : Form
             await Task.Delay(1800);
 
             var json = await RunScraperAsync();
-            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (оценки)"); return; }
+            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (оценки)", LogLevel.Warning); return; }
 
             Snapshot snap;
             try { snap = JsonSerializer.Deserialize<Snapshot>(json) ?? new Snapshot(); }
-            catch (Exception e) { AppendLog("плохой JSON (оценки): " + e.Message); return; }
+            catch (Exception e) { AppendLog("плохой JSON (оценки): " + e.Message, LogLevel.Error); return; }
 
-            if (snap.Grades.Count == 0) { AppendLog("оценок на странице нет"); return; }
-            AppendLog($"собрано оценок: {snap.Grades.Count}, отправляю всё");
+            if (snap.Grades.Count == 0) { AppendLog("оценок на странице нет", LogLevel.Warning); return; }
+            AppendLog($"собрано оценок: {snap.Grades.Count}, отправляю всё", LogLevel.Info);
 
             _prevGrades = snap;
             _gradesInitialized = true;
@@ -590,11 +641,12 @@ public sealed class MainForm : Form
 
             if (string.IsNullOrWhiteSpace(_serverUrl))
             {
-                AppendLog("  (не отправлено) server_url не задан");
+                AppendLog("server_url не задан — не отправлено", LogLevel.Warning);
                 return;
             }
-            var ok = await _sender!.SendAsync(ev, AppendLog);
-            AppendLog(ok ? "  → все оценки отправлены" : "  → ошибка отправки");
+            var ok = await _sender!.SendAsync(ev, (s) => AppendLog(s, LogLevel.Debug));
+            AppendLog(ok ? "✓ все оценки отправлены" : "✕ ошибка отправки",
+                ok ? LogLevel.Success : LogLevel.Error);
         }
         finally { _checkNow.Enabled = true; }
     }
@@ -639,11 +691,11 @@ public sealed class MainForm : Form
 
     private async Task SendTomorrowLessonsAsync()
     {
-        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
+        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов", LogLevel.Error); return; }
         try
         {
             _sendTomorrow.Enabled = false;
-            AppendLog("собираю расписание на завтра");
+            AppendLog("собираю расписание на завтра", LogLevel.Info);
 
             NavigateTo(LessonsHash);
             await Task.Delay(2000);
@@ -661,14 +713,14 @@ public sealed class MainForm : Form
             }
 
             var json = await RunScraperAsync();
-            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (расписание)"); return; }
+            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (расписание)", LogLevel.Warning); return; }
 
             Snapshot snap;
             try { snap = JsonSerializer.Deserialize<Snapshot>(json) ?? new Snapshot(); }
-            catch (Exception e) { AppendLog("плохой JSON (расписание): " + e.Message); return; }
+            catch (Exception e) { AppendLog("плохой JSON (расписание): " + e.Message, LogLevel.Error); return; }
 
             var text = FormatLessonsForDate(snap, target);
-            AppendLog($"пар на {target}: {(text == null ? 0 : text.Split('\n').Length)}");
+            AppendLog($"пар на {target}: {(text == null ? 0 : text.Split('\n').Length)}", LogLevel.Info);
 
             var ev = new Event
             {
@@ -680,12 +732,13 @@ public sealed class MainForm : Form
 
             if (string.IsNullOrWhiteSpace(_serverUrl))
             {
-                AppendLog("  (не отправлено) " + ev.Value);
+                AppendLog("server_url не задан — не отправлено", LogLevel.Warning);
                 return;
             }
-            var ok = await _sender!.SendAsync(ev, AppendLog);
+            var ok = await _sender!.SendAsync(ev, (s) => AppendLog(s, LogLevel.Debug));
             if (ok) _lastLessonsSent = DateTime.Now;
-            AppendLog(ok ? "  → расписание отправлено" : "  → ошибка отправки");
+            AppendLog(ok ? "✓ расписание отправлено" : "✕ ошибка отправки",
+                ok ? LogLevel.Success : LogLevel.Error);
         }
         finally { _sendTomorrow.Enabled = true; }
     }
@@ -717,23 +770,136 @@ public sealed class MainForm : Form
         return sb.ToString().TrimEnd();
     }
 
-    private void AppendLog(string line)
+    private enum LogLevel { Debug, Info, Success, Warning, Error }
+
+    private void AppendLog(string line, LogLevel level = LogLevel.Info)
     {
         var ts = DateTime.Now.ToString("HH:mm:ss");
         void add()
         {
-            _log.AppendText($"[{ts}] {line}{Environment.NewLine}");
-            if (_log.Lines.Length > 1000) _log.Lines = _log.Lines[^500..];
+            Color color;
+            string prefix;
+            switch (level)
+            {
+                case LogLevel.Debug:   color = Theme.LogDebug;   prefix = "DBG "; break;
+                case LogLevel.Success: color = Theme.LogSuccess; prefix = "✓   "; break;
+                case LogLevel.Warning: color = Theme.LogWarning; prefix = "!   "; _warnCount++; break;
+                case LogLevel.Error:   color = Theme.LogError;   prefix = "✕   "; _errCount++; break;
+                default:               color = Theme.LogInfo;    prefix = "·   "; break;
+            }
+
+            if (_log.TextLength > 50000)
+            {
+                _log.Select(0, _log.TextLength / 2);
+                _log.SelectedText = "";
+            }
+
+            var atEnd = _log.SelectionStart >= _log.TextLength - 10;
+
+            _log.SelectionStart = _log.TextLength;
+            _log.SelectionLength = 0;
+            _log.SelectionColor = Theme.LogTimestamp;
+            _log.AppendText(ts + " ");
+            _log.SelectionColor = color;
+            _log.AppendText(prefix + line + "\n");
+
+            if (atEnd) _log.ScrollToCaret();
+
+            UpdateLogBadge();
 
             try
             {
-                if (line.Contains("оценок в снимке") || line.Contains("новых оценок"))
-                    _statusLast.Text = "последняя: оценки " + ts;
-                else if (line.Contains("расписание отправлено"))
-                    _statusLast.Text = "последняя: расписание " + ts;
+                if (level == LogLevel.Success)
+                {
+                    if (line.Contains("оцен")) _statusLast.Text = "последняя: оценки " + ts;
+                    else if (line.Contains("расписан")) _statusLast.Text = "последняя: расписание " + ts;
+                }
             }
             catch { }
         }
         if (_log.InvokeRequired) _log.BeginInvoke((Action)add); else add();
     }
+
+    private void UpdateLogBadge()
+    {
+        if (_errCount == 0 && _warnCount == 0)
+        {
+            _logBadge.Text = "";
+            return;
+        }
+        var parts = new List<string>();
+        if (_errCount > 0) parts.Add($"● {_errCount} err");
+        if (_warnCount > 0) parts.Add($"● {_warnCount} warn");
+        _logBadge.Text = string.Join("  ", parts);
+        _logBadge.ForeColor = _errCount > 0 ? Theme.Err : Theme.LogWarning;
+    }
+}
+
+/// <summary>Тёмная тема для выпадающих меню.</summary>
+internal sealed class DarkMenuRenderer : ToolStripProfessionalRenderer
+{
+    public DarkMenuRenderer() : base(new DarkColorTable()) { }
+
+    protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+    {
+        var rc = new Rectangle(2, 0, e.Item.Width - 4, e.Item.Height);
+        if (e.Item.Selected)
+        {
+            using var brush = new SolidBrush(Theme.Surface3);
+            e.Graphics.FillRectangle(brush, rc);
+        }
+        else
+        {
+            using var brush = new SolidBrush(Theme.Surface);
+            e.Graphics.FillRectangle(brush, rc);
+        }
+    }
+
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+    {
+        e.TextColor = e.Item.Enabled ? Theme.Text : Theme.TextMut;
+        base.OnRenderItemText(e);
+    }
+
+    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+    {
+        var rc = new Rectangle(6, e.Item.Height / 2, e.Item.Width - 12, 1);
+        using var pen = new Pen(Theme.Border);
+        e.Graphics.DrawLine(pen, rc.Left, rc.Top, rc.Right, rc.Top);
+    }
+
+    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+    {
+        using var pen = new Pen(Theme.Border);
+        var rc = e.AffectedBounds;
+        rc.Inflate(-1, -1);
+        e.Graphics.DrawRectangle(pen, rc);
+    }
+
+    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+    {
+        using var brush = new SolidBrush(Theme.Surface);
+        e.Graphics.FillRectangle(brush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+    {
+        using var brush = new SolidBrush(Theme.Surface);
+        e.Graphics.FillRectangle(brush, e.ToolStrip.ClientRectangle);
+    }
+}
+
+internal sealed class DarkColorTable : ProfessionalColorTable
+{
+    public override Color ToolStripDropDownBackground => Theme.Surface;
+    public override Color ImageMarginGradientBegin => Theme.Surface;
+    public override Color ImageMarginGradientMiddle => Theme.Surface;
+    public override Color ImageMarginGradientEnd => Theme.Surface;
+    public override Color SeparatorDark => Theme.Border;
+    public override Color SeparatorLight => Theme.Border;
+    public override Color MenuBorder => Theme.Border;
+    public override Color MenuItemBorder => Color.Transparent;
+    public override Color MenuItemSelected => Theme.Surface3;
+    public override Color MenuItemSelectedGradientBegin => Theme.Surface3;
+    public override Color MenuItemSelectedGradientEnd => Theme.Surface3;
 }

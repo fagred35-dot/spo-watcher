@@ -104,15 +104,15 @@ server/
 - `chat_id` жёстко в env сервера.
 - Токен бота не в репо, не в exe.
 
-## UI v0.2.0 (сделано 2026-09-21)
-- Верхняя панель: акцентные «📊 Все оценки сейчас» / «📅 Расписание на завтра» → разделитель → «📚 Оценки», «🗓 Расписание», «🏠 Главная», справа «⚙ Настройки». Один `leftFlow` (несколько Dock=Left перепутывают порядок).
-- Статус-бар внизу: индикатор сервера + «последняя»/«следующая».
-- Лог: сворачиваемая шапка (`_logHeader` + `_logToggle`, стрелка ▾/▸).
-- Трей: сворачивание в NotifyIcon (`_tray`), двойной клик — восстановить.
-- Иконка приложения: `AppIcon.Make()` (рисуется в рантайме) + `appicon.ico` + `<ApplicationIcon>` в csproj. Версия 0.2.0.
-- Заголовок окна с версией: `СПО-Вотчер v{ver}`.
+## UI v0.3.0 (сделано 2026-09-22)
+- **Theme.cs**: расширенная палитра (Bg/Surface/Surface2/Surface3, BorderHeavy, AccentHover/AccentPress/AccentSubtle, состояния Ok/Warn/Err с Subtle-вариантами, цвета лога LogInfo/LogSuccess/LogWarning/LogError/LogDebug/LogTimestamp).
+- **ModernButton.cs**: варианты стилей Primary/Accent/Secondary/Ghost/Danger, тени для акцентных, совместимость `Accent` property.
+- **ModernTextBox.cs**: кастомный TextBox со скруглением, подсветкой фокуса (акцентная рамка), hover-эффектом. Используется в SettingsForm.
+- **SettingsForm.cs**: переработан — ModernTextBox, стилизованный чекбокс, информационная панель с рамкой, Ghost/Accent/Secondary кнопки.
+- **MainForm.cs**: toolbar 64px с нижней границей; лог RichTextBox с цветными уровнями (DBG/✓/!/✕), бейдж ошибок/предупреждений в шапке лога; статус-бар с круглым индикатором (glow-эффект); тёмное контекстное меню трея (DarkMenuRenderer + DarkColorTable).
+- **site-dark.css v0.3.0**: тёмная тема карточек среднего балла (.average .inner/.cell), кнопки сайта (кроме #loginButton), модальные окна, алерты, выделение текста, transition-анимации.
 - Логику (RunGradesCheckAsync, SendAllGradesAsync, SendTomorrowLessonsAsync, OnNavigationCompleted, InitAsync, NavigateTo) НЕ трогали.
-- Коммит 6462344, запушен в main.
+- Версия 0.3.0.
 
 ## ГРАБЛИ: параллельная сессия
 - 2026-09-21 в этой папке параллельно работала ДРУГАЯ сессия: перезаписывала `app/MainForm.cs` своей версией (другие поля: `_logTogglePanel`, `_notifyIcon`, `_statusLabel`, заголовок v0.1.0), оставила мусорный файл `$null` (обломок PowerShell с TASKKILL). Проверять `stat` перед правкой: mtime/размер могут не совпасть с только что записанным.

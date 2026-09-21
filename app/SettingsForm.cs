@@ -1,22 +1,24 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace SpoWatcher;
 
-/// <summary>Диалог ввода логина и пароля от сайта. Тёмная тема.</summary>
+/// <summary>Диалог ввода логина и пароля. Современный Fluent-стиль.</summary>
 public sealed class SettingsForm : Form
 {
-    private readonly TextBox _login;
-    private readonly TextBox _password;
+    private readonly ModernTextBox _login;
+    private readonly ModernTextBox _password;
     private readonly CheckBox _showPassword;
     private readonly Label _status;
+    private readonly Label _titleLabel;
 
     public SettingsForm()
     {
         Text = "Настройки";
-        Width = 560;
-        Height = 340;
+        Width = 520;
+        Height = 460;
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -25,89 +27,134 @@ public sealed class SettingsForm : Form
         ForeColor = Theme.Text;
         Font = new Font("Segoe UI", 10f);
 
-        var title = new Label
+        // === Заголовок ===
+        _titleLabel = new Label
         {
-            Text = "Данные для входа на сайт",
-            Left = 24, Top = 18, Width = 500, Height = 26,
-            Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+            Text = "Авторизация на сайте",
+            Left = 28, Top = 24, Width = 460, Height = 32,
+            Font = new Font("Segoe UI", 15f, FontStyle.Regular),
             ForeColor = Theme.Text
         };
 
-        var lblLogin = new Label
+        var subtitle = new Label
         {
-            Text = "Логин", Left = 24, Top = 60, Width = 500, Height = 18,
+            Text = "Эти данные используются только для автозаполнения формы входа",
+            Left = 28, Top = 56, Width = 460, Height = 20,
             ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 9f)
-        };
-        _login = new TextBox
-        {
-            Left = 24, Top = 80, Width = 500, Height = 28,
-            BackColor = Theme.Surface2, ForeColor = Theme.Text,
-            BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 11f)
         };
 
+        // === Логин ===
+        var lblLogin = new Label
+        {
+            Text = "ЛОГИН", Left = 30, Top = 100, Width = 450, Height = 16,
+            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 8f, FontStyle.Bold)
+        };
+        _login = new ModernTextBox
+        {
+            Left = 28, Top = 120, Width = 460, Height = 40,
+            BackColor = Theme.Surface2
+        };
+
+        // === Пароль ===
         var lblPass = new Label
         {
-            Text = "Пароль", Left = 24, Top = 120, Width = 500, Height = 18,
-            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 9f)
+            Text = "ПАРОЛЬ", Left = 30, Top = 172, Width = 450, Height = 16,
+            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 8f, FontStyle.Bold)
         };
-        _password = new TextBox
+        _password = new ModernTextBox
         {
-            Left = 24, Top = 140, Width = 500, Height = 28,
-            BackColor = Theme.Surface2, ForeColor = Theme.Text,
-            BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 11f),
+            Left = 28, Top = 192, Width = 460, Height = 40,
+            BackColor = Theme.Surface2,
             UseSystemPasswordChar = true
         };
 
+        // === Чекбокс ===
         _showPassword = new CheckBox
         {
-            Text = "Показать пароль", Left = 24, Top = 176, Width = 200, Height = 24,
-            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 9f)
+            Text = " Показать пароль",
+            Left = 28, Top = 242, Width = 240, Height = 24,
+            ForeColor = Theme.TextDim,
+            Font = new Font("Segoe UI", 9f),
+            FlatStyle = FlatStyle.Flat
         };
+        _showPassword.FlatAppearance.CheckedBackColor = Theme.Surface2;
+        _showPassword.FlatAppearance.BorderColor = Theme.Border;
+        _showPassword.FlatAppearance.MouseOverBackColor = Theme.Surface2;
         _showPassword.CheckedChanged += (_, _) =>
         {
             _password.UseSystemPasswordChar = !_showPassword.Checked;
         };
 
-        var info = new Label
+        // === Информационный блок ===
+        var infoPanel = new Panel
         {
-            Left = 24, Top = 208, Width = 500, Height = 44,
-            Text = "🔒 Пароль шифруется Windows (DPAPI) ключом текущего пользователя.\n" +
-                   "Файл: %APPDATA%\\spo-watcher\\credentials.dat",
-            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 8.5f)
+            Left = 28, Top = 284, Width = 460, Height = 64,
+            BackColor = Theme.Surface2,
+            Padding = new Padding(12, 8, 12, 8)
+        };
+        var infoLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            Text = "🔒  Данные хранятся зашифрованно через Windows DPAPI\n     %APPDATA%\\spo-watcher\\credentials.dat",
+            ForeColor = Theme.TextDim,
+            Font = new Font("Segoe UI", 9f),
+            AutoSize = false
+        };
+        infoPanel.Controls.Add(infoLabel);
+        infoPanel.Paint += (s, e) =>
+        {
+            var r = infoPanel.ClientRectangle;
+            r.Inflate(-1, -1);
+            using var p = new Pen(Theme.Border, 1);
+            e.Graphics.DrawRectangle(p, r);
         };
 
+        // === Статус ===
         _status = new Label
         {
-            Left = 24, Top = 254, Width = 500, Height = 22,
-            ForeColor = Theme.Ok, Font = new Font("Segoe UI", 9f)
+            Left = 30, Top = 362, Width = 456, Height = 24,
+            ForeColor = Theme.TextDim, Font = new Font("Segoe UI", 9f)
         };
+
+        // === Кнопки ===
+        var btnClose = new ModernButton
+        {
+            Text = "Закрыть",
+            Left = 398, Top = 400, Width = 90, Height = 38,
+            ButtonStyle = ModernButton.Style.Ghost
+        };
+        btnClose.Click += (_, _) => Close();
 
         var btnSave = new ModernButton
         {
-            Text = "Сохранить", Left = 284, Top = 282, Width = 120, Height = 34,
-            Accent = true
+            Text = "Сохранить",
+            Left = 288, Top = 400, Width = 104, Height = 38,
+            ButtonStyle = ModernButton.Style.Accent
         };
         btnSave.Click += (_, _) => Save();
 
         var btnClear = new ModernButton
         {
-            Text = "Удалить", Left = 156, Top = 282, Width = 120, Height = 34
+            Text = "Очистить",
+            Left = 176, Top = 400, Width = 104, Height = 38,
+            ButtonStyle = ModernButton.Style.Secondary
         };
         btnClear.Click += (_, _) => Clear();
 
-        var btnClose = new ModernButton
-        {
-            Text = "Закрыть", Left = 412, Top = 282, Width = 110, Height = 34
-        };
-        btnClose.Click += (_, _) => Close();
-
         Controls.AddRange(new Control[]
         {
-            title, lblLogin, _login, lblPass, _password, _showPassword,
-            info, _status, btnSave, btnClear, btnClose
+            _titleLabel, subtitle, lblLogin, _login, lblPass, _password,
+            _showPassword, infoPanel, _status, btnSave, btnClear, btnClose
         });
 
         LoadStored();
+
+        // Скругление углов формы
+        Paint += (s, e) =>
+        {
+            using var p = new Pen(Theme.Border, 1);
+            e.Graphics.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
+        };
     }
 
     private void LoadStored()
@@ -115,14 +162,14 @@ public sealed class SettingsForm : Form
         var data = Credentials.Load();
         if (data == null)
         {
-            _status.Text = "Сохранённых данных нет.";
-            _status.ForeColor = Theme.TextDim;
+            _status.Text = "● Сохранённых данных нет";
+            _status.ForeColor = Theme.TextMut;
             return;
         }
         _login.Text = data.Login;
         _password.Text = data.Password;
-        _status.Text = "Загружены сохранённые данные.";
-        _status.ForeColor = Theme.TextDim;
+        _status.Text = "● Загружены сохранённые данные";
+        _status.ForeColor = Theme.Info;
     }
 
     private void Save()
@@ -131,19 +178,19 @@ public sealed class SettingsForm : Form
         var password = _password.Text;
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrEmpty(password))
         {
-            _status.Text = "Заполните и логин, и пароль.";
+            _status.Text = "✕ Заполните оба поля";
             _status.ForeColor = Theme.Err;
             return;
         }
         try
         {
             Credentials.Save(login, password);
-            _status.Text = "Сохранено. При следующем запуске приложение введёт данные само.";
+            _status.Text = "✓ Данные сохранены";
             _status.ForeColor = Theme.Ok;
         }
         catch (Exception ex)
         {
-            _status.Text = "Ошибка сохранения: " + ex.Message;
+            _status.Text = "✕ Ошибка: " + ex.Message;
             _status.ForeColor = Theme.Err;
         }
     }
@@ -153,7 +200,7 @@ public sealed class SettingsForm : Form
         Credentials.Delete();
         _login.Text = "";
         _password.Text = "";
-        _status.Text = "Сохранённые данные удалены.";
+        _status.Text = "● Данные удалены";
         _status.ForeColor = Theme.TextDim;
     }
 }
