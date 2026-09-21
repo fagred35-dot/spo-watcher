@@ -6,7 +6,7 @@ const http = require('http');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const ALLOWED_TYPES = new Set(['grade', 'substitution', 'startup', 'lessons']);
+const ALLOWED_TYPES = new Set(['grade', 'substitution', 'startup', 'lessons', 'grades_all']);
 const MAX_LEN = 300;
 const MAX_LEN_VALUE = 4000;
 const MAX_BODY = 64 * 1024; // 64 KB
@@ -28,11 +28,26 @@ function cleanStr(v, maxLen) {
   return s;
 }
 
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function formatMessage(ev) {
-  if (ev.type === 'grade') return `\uD83D\uDCDD Оценка: ${ev.value}\n${ev.subject}\n${ev.date}`;
-  if (ev.type === 'substitution') return `\uD83D\uDD01 Замена:\n${ev.subject}\n${ev.date}\n${ev.value}`;
-  if (ev.type === 'startup') return `\u2705 Мониторинг запущен.\n${ev.date}`;
-  if (ev.type === 'lessons') return `\uD83D\uDCC5 ${ev.subject}\n\n${ev.value}`;
+  if (ev.type === 'grade') {
+    return `\uD83D\uDCDD <b>Оценка: ${esc(ev.value)}</b>\n${esc(ev.subject)}\n<i>${esc(ev.date)}</i>`;
+  }
+  if (ev.type === 'substitution') {
+    return `\uD83D\uDD01 <b>Замена</b>\n${esc(ev.subject)}\n<i>${esc(ev.date)}</i>\n${esc(ev.value)}`;
+  }
+  if (ev.type === 'startup') {
+    return `\u2705 <b>Мониторинг запущен</b>\n<i>${esc(ev.date)}</i>`;
+  }
+  if (ev.type === 'lessons') {
+    return `\uD83D\uDCC5 <b>${esc(ev.subject)}</b>\n\n${ev.value}`;
+  }
+  if (ev.type === 'grades_all') {
+    return `\uD83D\uDCDA <b>${esc(ev.subject)}</b>\n\n${ev.value}`;
+  }
   return null;
 }
 
@@ -99,7 +114,7 @@ async function handleNotify(req, res) {
     const r = await fetch(tgUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true })
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.ok) {

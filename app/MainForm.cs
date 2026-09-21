@@ -33,6 +33,7 @@ public sealed class MainForm : Form
     private Sender? _sender;
     private string _serverUrl = "";
     private string _secret = "";
+    private bool _autoLoginAttempted = false;
 
     public MainForm()
     {
@@ -43,8 +44,8 @@ public sealed class MainForm : Form
 
         var top = new Panel { Dock = DockStyle.Top, Height = 32 };
 
-        _checkNow = new Button { Text = "Проверить оценки", Width = 140, Left = 6, Top = 3 };
-        _checkNow.Click += async (_, _) => await RunGradesCheckAsync();
+        _checkNow = new Button { Text = "Все оценки сейчас", Width = 150, Left = 6, Top = 3 };
+        _checkNow.Click += async (_, _) => await SendAllGradesAsync();
         top.Controls.Add(_checkNow);
 
         _sendTomorrow = new Button { Text = "Расписание на завтра", Width = 170, Left = 156, Top = 3 };
@@ -62,6 +63,14 @@ public sealed class MainForm : Form
         var btnSite = new Button { Text = "Главная", Width = 90, Left = 566, Top = 3 };
         btnSite.Click += (_, _) => NavigateTo("#/");
         top.Controls.Add(btnSite);
+
+        var btnSettings = new Button { Text = "Настройки", Width = 100, Left = 666, Top = 3 };
+        btnSettings.Click += (_, _) =>
+        {
+            using var dlg = new SettingsForm();
+            dlg.ShowDialog(this);
+        };
+        top.Controls.Add(btnSettings);
 
         _web = new WebView2 { Dock = DockStyle.Fill };
 
@@ -140,6 +149,7 @@ public sealed class MainForm : Form
             await _web.EnsureCoreWebView2Async(env);
 
             _web.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
             _web.CoreWebView2.Navigate(SiteUrl);
             AppendLog("окно инициализировано, загружаю сайт");
 
@@ -159,6 +169,43 @@ public sealed class MainForm : Form
     {
         try { _web.CoreWebView2?.ExecuteScriptAsync($"location.hash = '{hash}';") ; }
         catch { }
+    }
+
+    /// <summary>При завершении каждой навигации — проверяем, не форма ли входа.</summary>
+    private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess) return;
+        if (_autoLoginAttempted) return;
+        if (!Credentials.Exists()) return;
+
+        var creds = Credentials.Load();
+        if (creds == null || string.IsNullOrEmpty(creds.Login) || string.IsNullOrEmpty(creds.Password))
+            return;
+
+        try
+        {
+            // Проверяем наличие формы входа.
+            var probe = await _web.CoreWebView2.ExecuteScriptAsync(
+                "document.getElementById('login') ? 'yes' : 'no'");
+            // ExecuteScriptAsync возвращает JSON-строку, поэтому "yes" с кавычками.
+            if (probe != "\"yes\"") return;
+
+            _autoLoginAttempted = true;
+            AppendLog("обнаружена форма входа, ввожу сохранённые данные");
+
+            // Кладём credentials в window как валидный JSON (экранирование берёт на себя System.Text.Json).
+            var loginJson = JsonSerializer.Serialize(creds.Login);
+            var passJson = JsonSerializer.Serialize(creds.Password);
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                $"window.__spoCreds = {{ login: {loginJson}, password: {passJson} }};");
+
+            var result = await _web.CoreWebView2.ExecuteScriptAsync(AutoLogin.Script);
+            AppendLog("автозаполнение: " + result);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ошибка автозаполнения: " + ex.Message);
+        }
     }
 
     private async Task<string> RunScraperAsync()
@@ -212,6 +259,81 @@ public sealed class MainForm : Form
             }
         }
         finally { _checkNow.Enabled = true; }
+    }
+
+    /// <summary>Ручная кнопка: собрать ВСЕ текущие оценки и отправить.</summary>
+    private async Task SendAllGradesAsync()
+    {
+        if (_web.CoreWebView2 is null) { AppendLog("WebView2 не готов"); return; }
+        try
+        {
+            _checkNow.Enabled = false;
+            NavigateTo(GradesHash);
+            await Task.Delay(1800);
+
+            var json = await RunScraperAsync();
+            if (string.IsNullOrEmpty(json)) { AppendLog("пустой ответ скрапера (оценки)"); return; }
+
+            Snapshot snap;
+            try { snap = JsonSerializer.Deserialize<Snapshot>(json) ?? new Snapshot(); }
+            catch (Exception e) { AppendLog("плохой JSON (оценки): " + e.Message); return; }
+
+            if (snap.Grades.Count == 0) { AppendLog("оценок на странице нет"); return; }
+            AppendLog($"собрано оценок: {snap.Grades.Count}, отправляю всё");
+
+            // Сохраняем как текущее состояние, чтобы часовая проверка потом сравнивала с ним.
+            _prevGrades = snap;
+            _gradesInitialized = true;
+
+            var allText = FormatAllGrades(snap);
+            var ev = new Event
+            {
+                Kind = "grades_all",
+                Subject = $"Все оценки на {DateTime.Today:dd.MM.yyyy}",
+                Date = DateTime.Today.ToString("yyyy-MM-dd"),
+                Value = allText
+            };
+
+            if (string.IsNullOrWhiteSpace(_serverUrl))
+            {
+                AppendLog("  (не отправлено) server_url не задан");
+                return;
+            }
+            var ok = await _sender!.SendAsync(ev, AppendLog);
+            AppendLog(ok ? "  → все оценки отправлены" : "  → ошибка отправки");
+        }
+        finally { _checkNow.Enabled = true; }
+    }
+
+    /// <summary>Форматирует все оценки сгруппированно по предмету.</summary>
+    private static string FormatAllGrades(Snapshot snap)
+    {
+        var bySubject = new SortedDictionary<string, List<(string date, string value)>>();
+        foreach (var kv in snap.Grades)
+        {
+            var parts = kv.Key.Split('|', 2);
+            if (parts.Length < 2) continue;
+            var subject = parts[0];
+            var date = parts[1];
+            if (!bySubject.TryGetValue(subject, out var list))
+            {
+                list = new List<(string, string)>();
+                bySubject[subject] = list;
+            }
+            list.Add((date, kv.Value));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var kv in bySubject)
+        {
+            sb.AppendLine($"<b>{System.Net.WebUtility.HtmlEncode(kv.Key)}</b>");
+            foreach (var (date, value) in kv.Value)
+            {
+                sb.AppendLine($"  {System.Net.WebUtility.HtmlEncode(date)} — {System.Net.WebUtility.HtmlEncode(value)}");
+            }
+            sb.AppendLine();
+        }
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>Каждые 5 мин: если наступил час X и сегодня ещё не отправляли — шлём.</summary>
@@ -293,14 +415,16 @@ public sealed class MainForm : Form
         if (items.Count == 0) return null;
         items.Sort((a, b) => string.CompareOrdinal(a.time, b.time));
 
+        static string enc(string s) => System.Net.WebUtility.HtmlEncode(s);
         var sb = new StringBuilder();
         foreach (var (time, lesson) in items)
         {
             var end = string.IsNullOrEmpty(lesson.TimeEnd) ? "" : $"–{lesson.TimeEnd}";
-            sb.Append($"{time}{end}  {lesson.Subject}");
-            if (!string.IsNullOrEmpty(lesson.Room)) sb.Append($"\n    {lesson.Room}");
-            if (!string.IsNullOrEmpty(lesson.Teacher)) sb.Append($"\n    {lesson.Teacher}");
-            sb.Append('\n');
+            sb.AppendLine($"\u23F0 <b>{enc(time)}{enc(end)}</b>");
+            sb.AppendLine($"\uD83D\uDCD8 {enc(lesson.Subject)}");
+            if (!string.IsNullOrEmpty(lesson.Room)) sb.AppendLine($"\uD83D\uDEAA {enc(lesson.Room)}");
+            if (!string.IsNullOrEmpty(lesson.Teacher)) sb.AppendLine($"\uD83D\uDC64 {enc(lesson.Teacher)}");
+            sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
     }

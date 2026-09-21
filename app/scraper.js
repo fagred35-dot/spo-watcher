@@ -97,7 +97,8 @@
         subject: item.subject, teacher: item.teacher, room: item.room, time_end: item.time_end
       };
     });
-    return JSON.stringify(snap);
+    // WebView2 сам сериализует результат в JSON. Возвращаем объект, не строку.
+    return snap;
   }
 
   return buildSnapshot();
