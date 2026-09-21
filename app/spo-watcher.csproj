@@ -8,7 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>spo-watcher</AssemblyName>
     <RootNamespace>SpoWatcher</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
+    <ApplicationIcon>appicon.ico</ApplicationIcon>
     <Product>СПО-Вотчер</Product>
     <AssemblyTitle>СПО-Вотчер</AssemblyTitle>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
