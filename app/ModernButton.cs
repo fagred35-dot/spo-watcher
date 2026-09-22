@@ -71,7 +71,9 @@ public sealed class ModernButton : Button
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        g.Clear(Parent?.BackColor ?? Theme.Bg);
+        var parentBg = Parent?.BackColor ?? Theme.Surface;
+        if (parentBg.A == 0) parentBg = Theme.Surface;
+        g.Clear(parentBg);
 
         GetColors(out Color bg, out Color fg, out Color border);
 
@@ -140,9 +142,9 @@ public sealed class ModernButton : Button
 
             case Style.Ghost:
                 bg = _pressed ? Theme.Surface3
-                    : _hover ? Color.FromArgb(30, 255, 255, 255)
+                    : _hover ? Color.FromArgb(28, 255, 255, 255)
                     : Color.Transparent;
-                fg = _hover ? Theme.Accent : Theme.TextDim;
+                fg = _hover ? Theme.Accent : Theme.Text;
                 break;
 
             case Style.Danger:

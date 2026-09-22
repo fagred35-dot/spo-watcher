@@ -117,8 +117,20 @@ server/
 ## ГРАБЛИ: параллельная сессия
 - 2026-09-21 в этой папке параллельно работала ДРУГАЯ сессия: перезаписывала `app/MainForm.cs` своей версией (другие поля: `_logTogglePanel`, `_notifyIcon`, `_statusLabel`, заголовок v0.1.0), оставила мусорный файл `$null` (обломок PowerShell с TASKKILL). Проверять `stat` перед правкой: mtime/размер могут не совпасть с только что записанным.
 
+## UI v0.3.1 (сделано 2026-09-22)
+- **ГЛАВНАЯ ГРАБЛЯ**: `csproj` имел `<Version>0.2.0</Version>`, а код MainForm был уже v0.3.0 — exe на скрине показывал v0.2.0, а правки UI «не применялись». MainForm берёт версию из AssemblyVersion. Поднял до 0.3.1.
+- **Ghost-кнопки выглядели светлыми плашками**: в `ModernButton.OnPaint` был `g.Clear(Parent?.BackColor ?? Theme.Bg)`, а у FlowLayoutPanel `BackColor = Color.Transparent` (ARGB 0x00FFFFFF) → Graphics.Clear заливает белым. Фикс: если `parentBg.A == 0`, брать `Theme.Surface`.
+- Текст ghost-кнопок был `Theme.TextDim` (бледный) → сделал `Theme.Text`, hover → Accent.
+- **Дашборд `.average`**: усилены селекторы `div.average > div.cell > div.inner` + `background-color/background-image: none`, сам `.average` — прозрачный. Карточки стали тёмными.
+- **Активный пункт меню сайта** (синяя плитка «Занятия»): AngularJS вешает `current`/`active` — добавлены правила `nav.main-menu .item.current/.active/.selected` в site-dark.css.
+- Сборка/запуск: `cd app && dotnet build -c Release > build.log 2>&1`, затем `start_process .\bin\Release\net6.0-windows\win-x64\spo-watcher.exe` shell cmd.
+- `dotnet build | findstr` НЕ работает (cp866-вывод) — писать в build.log и читать `read_lines { tail, encoding: "auto" }`.
+- `screenshot { window: "..." }` иногда ловит чужое окно или не успевает — брать по process-имени `"spo-watcher"`, waitMs 2000–4000.
+
 ## Открытое / возможные улучшения
-- Сайт на дашборде не полностью темизирован: белые карточки «Лучший/худший средний балл» (`.average .inner` — поправить в site-dark.css).
+- ~~Сайт на дашборде не полностью темизирован: белые карточки~~ — сделано в v0.3.1.
+- Тулбар: пустой промежуток по центру между навигацией и «Настройки» — можно заполнить статусом/инфо.
+- Статус-бар: «последняя: —» пустая до первой проверки — ок.
 - `$null` не удаляется через delete (ENOENT на rename с именем `$null`) — оставлен, добавлен в .gitignore.
 - Render Free засыпает через 15 минут. Пинговать `/health` через cron-job.org раз в 10 минут.
 - Возможный перенос exe на Render — НЕВОЗМОЖЕН: Render это Linux, exe это Windows. Можно разделить логику: сервер + веб-интерфейс, но тогда теряется WebView2 и автологин.

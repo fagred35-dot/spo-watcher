@@ -30,6 +30,27 @@ nav.main-menu .drop-list dd, nav.main-menu .item-submenu { background: var(--spo
 nav.main-menu .usermenu .item-title { color: var(--spo-accent) !important; }
 nav.main-menu hr { border-color: var(--spo-border) !important; }
 
+/* Активный пункт меню (AngularJS вешает current/active) */
+nav.main-menu .item.current,
+nav.main-menu .item.active,
+nav.main-menu .item.selected {
+  background: var(--spo-surface2) !important;
+}
+nav.main-menu .item.current > .item-title,
+nav.main-menu .item.active > .item-title,
+nav.main-menu .item.selected > .item-title,
+nav.main-menu .item.current > a.item-title,
+nav.main-menu .item.active > a.item-title,
+nav.main-menu .item.selected > a.item-title,
+nav.main-menu a.item-title.current,
+nav.main-menu a.item-title.active {
+  background: var(--spo-surface2) !important;
+  color: var(--spo-accent) !important;
+}
+nav.main-menu .homelink { background: transparent !important; }
+nav.main-menu .homelink:hover { background: var(--spo-surface2) !important; }
+nav.main-menu .item.open { background: transparent !important; }
+
 /* === Заголовки === */
 .headline, .headline hgroup, hgroup { background: transparent !important; border-color: var(--spo-border) !important; }
 h1, h2, h3, h4, h5 { color: var(--spo-text) !important; }
@@ -74,13 +95,24 @@ td[x-ng-bind="day.value"]:not(:empty) { color: var(--spo-accent) !important; fon
 
 /* === Дашборд: карточки среднего балла (были белые!) === */
 .student-dashboard, .student-progress { background: transparent !important; }
+div.average > div.cell > div.inner,
+div.average > div.cell .inner,
+.student-progress .average .cell .inner,
 .average .cell .inner,
-.average .inner,
-.average {
-  background: var(--spo-surface) !important;
+.average .inner {
+  background-color: var(--spo-surface) !important;
+  background-image: none !important;
   border: 1px solid var(--spo-border) !important;
   border-radius: 8px !important;
   color: var(--spo-text) !important;
+  padding: 12px 16px !important;
+}
+.student-progress .average,
+.average {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 .average .cell, .average .label { color: var(--spo-text-dim) !important; background: transparent !important; }
 .average big, .average .value { color: var(--spo-text) !important; }
