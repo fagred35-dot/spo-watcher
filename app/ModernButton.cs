@@ -15,13 +15,6 @@ public sealed class ModernButton : Button
     public Style ButtonStyle { get; set; } = Style.Secondary;
     public int CornerRadius { get; set; } = 8;
 
-    /// <summary>Совместимость со старым кодом: Accent = true делает стиль Accent.</summary>
-    public bool Accent
-    {
-        get => ButtonStyle == Style.Accent;
-        set => ButtonStyle = value ? Style.Accent : Style.Secondary;
-    }
-
     public ModernButton()
     {
         FlatStyle = FlatStyle.Flat;

@@ -24,17 +24,11 @@ public static class Theme
     public static readonly Color Accent      = Color.FromArgb(0xFF, 0x9F, 0x43);
     public static readonly Color AccentHover = Color.FromArgb(0xFF, 0xAF, 0x5C);
     public static readonly Color AccentPress = Color.FromArgb(0xE8, 0x8B, 0x2E);
-    public static readonly Color AccentSubtle = Color.FromArgb(0x3A, 0x2E, 0x20); // Фон для ghost кнопок
 
     // Состояния
     public static readonly Color Ok      = Color.FromArgb(0x4C, 0xAF, 0x50);
-    public static readonly Color OkSubtle = Color.FromArgb(0x1F, 0x2E, 0x22);
-    public static readonly Color Warn    = Color.FromArgb(0xFF, 0xB3, 0x00);
-    public static readonly Color WarnSubtle = Color.FromArgb(0x33, 0x2C, 0x18);
     public static readonly Color Err     = Color.FromArgb(0xEF, 0x53, 0x50);
-    public static readonly Color ErrSubtle = Color.FromArgb(0x33, 0x1E, 0x1E);
     public static readonly Color Info    = Color.FromArgb(0x42, 0xA5, 0xF5);
-    public static readonly Color InfoSubtle = Color.FromArgb(0x1A, 0x2A, 0x38);
 
     // Лог — цвета строк
     public static readonly Color LogInfo    = Color.FromArgb(0xD0, 0xD4, 0xD8);

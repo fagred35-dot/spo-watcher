@@ -125,7 +125,7 @@ public sealed class MainForm : Form
         btnLessons.Click += (_, _) => NavigateTo(LessonsHash);
         leftFlow.Controls.Add(btnLessons);
 
-        var btnSite = new ModernButton { Text = "🏠 Главная", Width = 110, ButtonStyle = ModernButton.Style.Ghost };
+        var btnSite = new ModernButton { Text = "🏠 Главная", Width = 110, ButtonStyle = ModernButton.Style.Ghost, Margin = new Padding(0, 0, 4, 0) };
         btnSite.Click += (_, _) => NavigateTo("#/");
         leftFlow.Controls.Add(btnSite);
 
