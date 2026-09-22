@@ -523,6 +523,15 @@ public sealed class MainForm : Form
             AppendLog("ошибка инъекции CSS: " + ex.Message, LogLevel.Error);
         }
 
+        try
+        {
+            await _web.CoreWebView2.ExecuteScriptAsync(NameMask.Script);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ошибка маскировки ФИО: " + ex.Message, LogLevel.Warning);
+        }
+
         if (_autoLoginAttempted) return;
         if (!Credentials.Exists()) return;
 
